@@ -3122,7 +3122,7 @@
 
     function visibleNodes() {
       if (isPackageMode && packageState === "result") return standaloneNodes();
-      if (isCollapsed) return workflowNodes("twitter");
+      if (isCollapsed) return [...workflowNodes("twitter"), ...standaloneNodes()];
       return isPackageMode ? standaloneNodes() : flow.nodes;
     }
 
@@ -3607,16 +3607,9 @@
     function paintNodes() {
       const nodes = visibleNodes();
       $("#nodesLayer").innerHTML = nodes.map((item, index) => {
-        if (isCollapsed) return paintStackNode(item, index, nodes.length);
-        return `
-          <button class="node ${item.id === selectedId ? "selected" : ""} ${selectedNodeIds.has(item.id) ? "multi-selected" : ""} ${dragState?.ids?.includes(item.id) ? "dragging" : ""} ${item.status === "running" ? "running-node" : ""}" data-id="${item.id}" data-type="${item.type}" style="left:${displayX(item, index)}px; top:${displayY(item, index)}px">
-            ${index === 0 && item.workflowId === "twitter" ? '<span class="stack-node-action" data-stack-flow title="Stack workflow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8h10"></path><path d="M5 12h14"></path><path d="M8 16h8"></path></svg></span>' : ""}
-            <div class="node-top"><span class="node-icon">${iconFor(item.type)}</span><span class="run-chip ${item.status}">${labelFor(item.status)}</span></div>
-            <h3>${item.title}</h3>
-            <p>${item.summary}</p>
-            <div class="node-foot"><span class="type-chip">${typeLabel(item.type)}</span><span class="tiny">0${index + 1}</span></div>
-          </button>
-        `;
+        const stackIndex = isCollapsed && item.workflowId === "twitter" ? workflowNodes("twitter").findIndex(node => node.id === item.id) : -1;
+        if (stackIndex >= 0) return paintStackNode(item, stackIndex, workflowNodes("twitter").length);
+        return paintRegularNode(item, index);
       }).join("");
 
       document.querySelectorAll(".node").forEach(card => {
@@ -3646,6 +3639,18 @@
           runFlow();
         });
       });
+    }
+
+    function paintRegularNode(item, index) {
+      return `
+        <button class="node ${item.id === selectedId ? "selected" : ""} ${selectedNodeIds.has(item.id) ? "multi-selected" : ""} ${dragState?.ids?.includes(item.id) ? "dragging" : ""} ${item.status === "running" ? "running-node" : ""}" data-id="${item.id}" data-type="${item.type}" style="left:${displayX(item, index)}px; top:${displayY(item, index)}px">
+          ${!isCollapsed && index === 0 && item.workflowId === "twitter" ? '<span class="stack-node-action" data-stack-flow title="Stack workflow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8h10"></path><path d="M5 12h14"></path><path d="M8 16h8"></path></svg></span>' : ""}
+          <div class="node-top"><span class="node-icon">${iconFor(item.type)}</span><span class="run-chip ${item.status}">${labelFor(item.status)}</span></div>
+          <h3>${item.title}</h3>
+          <p>${item.summary}</p>
+          <div class="node-foot"><span class="type-chip">${typeLabel(item.type)}</span><span class="tiny">0${index + 1}</span></div>
+        </button>
+      `;
     }
 
     function paintStackNode(item, index, total) {
@@ -3893,12 +3898,12 @@
     }
 
     function displayX(item, index) {
-      if (!isCollapsed) return item.x;
+      if (!isCollapsed || !item.workflowId) return item.x;
       return stackOrigin.x + index * 18;
     }
 
     function displayY(item, index) {
-      if (!isCollapsed) return item.y;
+      if (!isCollapsed || !item.workflowId) return item.y;
       return stackOrigin.y + index * 12;
     }
 
@@ -4102,7 +4107,7 @@
       if (!item) return;
       event.preventDefault();
       event.stopPropagation();
-      const ids = isCollapsed
+      const ids = isCollapsed && item.workflowId
         ? workflowNodes("twitter").map(node => node.id)
         : selectedNodeIds.has(item.id) && selectedNodeIds.size > 1
           ? Array.from(selectedNodeIds)
@@ -4113,7 +4118,7 @@
       selectedId = item.id;
       dragState = {
         ids,
-        collapsed: isCollapsed,
+        collapsed: isCollapsed && Boolean(item.workflowId),
         startClientX: event.clientX,
         startClientY: event.clientY,
         startStackX: stackOrigin.x,
