@@ -1364,6 +1364,49 @@
       box-shadow: 0 0 0 5px rgba(15,127,114,.1);
     }
 
+    .workflow-zone {
+      position: absolute;
+      z-index: 0;
+      display: none;
+      border: 1px solid rgba(15,118,110,.22);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(240,253,250,.58), rgba(255,255,255,.18));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.7), 0 28px 90px rgba(15,23,42,.07);
+      pointer-events: none;
+    }
+
+    .board-shell.workflow-open .workflow-zone {
+      display: block;
+    }
+
+    .workflow-zone-label {
+      position: absolute;
+      left: 18px;
+      top: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border: 1px solid rgba(15,118,110,.18);
+      border-radius: 999px;
+      color: #0f766e;
+      background: rgba(255,255,255,.82);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .board-shell.workflow-open .node.standalone-node {
+      opacity: .42;
+      filter: grayscale(.22);
+    }
+
+    .board-shell.workflow-open .node.standalone-node:hover,
+    .board-shell.workflow-open .node.standalone-node.selected {
+      opacity: 1;
+      filter: none;
+    }
+
     .work-package {
       position: absolute;
       left: 360px;
@@ -1585,6 +1628,14 @@
     }
 
     .links { pointer-events: none; }
+    #nodesLayer {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+    }
+    .links {
+      z-index: 1;
+    }
     .link {
       fill: none;
       stroke: #9aa9b6;
@@ -1681,6 +1732,65 @@
       outline-offset: 3px;
     }
     .node.dragging { z-index: 5; transform: translateY(-2px) scale(1.01); box-shadow: var(--shadow-lg); }
+
+    .node-suggestion {
+      position: absolute;
+      left: calc(100% + 12px);
+      top: 16px;
+      z-index: 15;
+      display: none;
+      width: 210px;
+      padding: 10px;
+      border: 1px solid #ccfbf1;
+      border-radius: 12px;
+      color: #334155;
+      background: rgba(255,255,255,.96);
+      box-shadow: var(--shadow-lg);
+      pointer-events: none;
+    }
+
+    .node-suggestion::before {
+      content: "";
+      position: absolute;
+      left: -36px;
+      top: 26px;
+      width: 34px;
+      border-top: 1px dashed rgba(15,118,110,.55);
+    }
+
+    .node-suggestion strong {
+      display: block;
+      color: #0f766e;
+      font-size: 12px;
+    }
+
+    .node-suggestion span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .node.standalone-node:hover .node-suggestion {
+      display: block;
+    }
+
+    .node.standalone-node::after {
+      content: "";
+      position: absolute;
+      inset: -10px;
+      z-index: -1;
+      border: 1px dashed transparent;
+      border-radius: 18px;
+      pointer-events: none;
+      transition: border-color .18s ease, background .18s ease;
+    }
+
+    .node.standalone-node:hover::after {
+      border-color: rgba(15,118,110,.35);
+      background: rgba(240,253,250,.24);
+    }
     .node.collapsed {
       width: 248px;
       min-height: 138px;
@@ -2821,6 +2931,9 @@
               </div>
             </section>
             <div class="board" id="board">
+              <div class="workflow-zone" id="workflowZone">
+                <span class="workflow-zone-label" id="workflowZoneLabel">Twitter workflow folder</span>
+              </div>
               <svg class="links" id="linksSvg" aria-hidden="true">
                 <defs>
                   <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -3435,7 +3548,28 @@
       $("#board").style.transform = `translate(${canvasPan.x}px, ${canvasPan.y}px)`;
       packageEl.style.left = `${stackOrigin.x + canvasPan.x}px`;
       packageEl.style.top = `${stackOrigin.y + canvasPan.y}px`;
+      renderWorkflowZone();
       renderChatCollapse();
+    }
+
+    function renderWorkflowZone() {
+      const zone = $("#workflowZone");
+      if (!zone) return;
+      if (!openWorkflowId || isCollapsed) {
+        zone.style.display = "";
+        return;
+      }
+      const nodes = workflowNodes(openWorkflowId);
+      const padding = 44;
+      const minX = Math.min(...nodes.map(item => item.x));
+      const minY = Math.min(...nodes.map(item => item.y));
+      const maxX = Math.max(...nodes.map(item => item.x + 210));
+      const maxY = Math.max(...nodes.map(item => item.y + 122));
+      zone.style.left = `${minX - padding}px`;
+      zone.style.top = `${minY - padding}px`;
+      zone.style.width = `${maxX - minX + padding * 2}px`;
+      zone.style.height = `${maxY - minY + padding * 2}px`;
+      $("#workflowZoneLabel").textContent = currentLang === "zh" ? "Twitter workflow 文件夹" : "Twitter workflow folder";
     }
 
     function renderChatCollapse() {
@@ -3642,15 +3776,24 @@
     }
 
     function paintRegularNode(item, index) {
+      const suggestion = !item.workflowId ? nodeSuggestionHtml(item) : "";
       return `
-        <button class="node ${item.id === selectedId ? "selected" : ""} ${selectedNodeIds.has(item.id) ? "multi-selected" : ""} ${dragState?.ids?.includes(item.id) ? "dragging" : ""} ${item.status === "running" ? "running-node" : ""}" data-id="${item.id}" data-type="${item.type}" style="left:${displayX(item, index)}px; top:${displayY(item, index)}px">
+        <button class="node ${!item.workflowId ? "standalone-node" : ""} ${item.id === selectedId ? "selected" : ""} ${selectedNodeIds.has(item.id) ? "multi-selected" : ""} ${dragState?.ids?.includes(item.id) ? "dragging" : ""} ${item.status === "running" ? "running-node" : ""}" data-id="${item.id}" data-type="${item.type}" style="left:${displayX(item, index)}px; top:${displayY(item, index)}px">
           ${!isCollapsed && index === 0 && item.workflowId === "twitter" ? '<span class="stack-node-action" data-stack-flow title="Stack workflow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8h10"></path><path d="M5 12h14"></path><path d="M8 16h8"></path></svg></span>' : ""}
           <div class="node-top"><span class="node-icon">${iconFor(item.type)}</span><span class="run-chip ${item.status}">${labelFor(item.status)}</span></div>
           <h3>${item.title}</h3>
           <p>${item.summary}</p>
           <div class="node-foot"><span class="type-chip">${typeLabel(item.type)}</span><span class="tiny">0${index + 1}</span></div>
+          ${suggestion}
         </button>
       `;
+    }
+
+    function nodeSuggestionHtml(item) {
+      const copy = currentLang === "zh"
+        ? { title: "建议下一步", line1: "放入 Twitter 文件夹", line2: "或连接到发布/分析节点" }
+        : { title: "Suggested next", line1: "Put into Twitter folder", line2: "or connect to publish / analysis" };
+      return `<span class="node-suggestion"><strong>${copy.title}</strong><span>${copy.line1}</span><span>${copy.line2}</span></span>`;
     }
 
     function paintStackNode(item, index, total) {
