@@ -474,8 +474,9 @@
     }
 
     .home-tool-dot svg, .work-icon svg {
-      width: 18px;
-      height: 18px;
+      display: block;
+      width: 17px;
+      height: 17px;
       fill: none;
       stroke: currentColor;
       stroke-width: 2;
@@ -515,13 +516,13 @@
 
     .work-package-row {
       display: grid;
-      grid-template-columns: 46px minmax(0,1fr) auto;
+      grid-template-columns: 36px minmax(0,1fr) auto;
       align-items: center;
-      gap: 12px;
-      min-height: 74px;
-      padding: 12px;
+      gap: 10px;
+      min-height: 58px;
+      padding: 10px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: var(--radius);
       background: rgba(248,251,252,.85);
       text-align: left;
     }
@@ -537,20 +538,25 @@
     .work-icon {
       display: grid;
       place-items: center;
-      width: 46px;
-      height: 46px;
-      border-radius: 12px;
+      width: 34px;
+      height: 34px;
+      margin: 0;
+      border: 1px solid rgba(15,23,42,.06);
+      border-radius: 9px;
       background: var(--data-soft);
       color: var(--data);
       font-weight: 950;
+      line-height: 1;
     }
 
     .work-icon.agent { color: var(--agent); background: var(--agent-soft); }
     .work-icon.task { color: var(--task); background: var(--task-soft); }
     .work-icon.human { color: var(--human); background: var(--human-soft); }
 
-    .work-package-row strong, .home-feed strong { display: block; font-size: 14px; }
-    .work-package-row span, .home-feed span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .work-package-row strong, .home-feed strong { display: block; font-size: 14px; line-height: 1.18; }
+    .work-package-row > span:not(.work-icon):not(.status-pill), .home-feed span { display: block; margin-top: 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .work-package-row > span:not(.work-icon):not(.status-pill) strong { color: var(--ink); }
+    .work-package-row > span:not(.work-icon):not(.status-pill) span { margin-top: 3px; }
 
     .home-feed {
       display: grid;
@@ -2020,11 +2026,19 @@
     .type-chip,
     .tag,
     .next-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      padding: 0 8px;
       border: 1px solid #e2e8f0;
       border-radius: 999px;
       background: #f8fafc;
       color: #334155;
       box-shadow: none;
+      font-size: 12px;
+      font-weight: 760;
+      line-height: 1;
     }
 
     .work-package-row,
@@ -2058,6 +2072,25 @@
     .stack-front-mark {
       border-radius: 9px;
       box-shadow: inset 0 0 0 1px rgba(15,23,42,.06);
+    }
+
+    .work-package-row .status-pill {
+      min-width: auto;
+      white-space: nowrap;
+    }
+
+    .home-side-list .work-package-row,
+    .home-work .work-package-row {
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+    }
+
+    .home-work .work-package-row {
+      align-items: start;
+      min-height: 64px;
+    }
+
+    .home-work .status-pill {
+      margin-top: 2px;
     }
 
     .drawer,
