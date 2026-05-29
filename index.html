@@ -843,6 +843,105 @@
     .task-module h3 { font-size: 16px; }
     .task-module p { color: var(--muted); font-size: 13px; line-height: 1.5; }
 
+    .viz-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .viz-card {
+      min-height: 220px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.9);
+      box-shadow: var(--shadow);
+    }
+
+    .viz-card h3 {
+      font-size: 15px;
+    }
+
+    .viz-card p {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .viz-bars {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .viz-bar {
+      display: grid;
+      grid-template-columns: 88px 1fr 44px;
+      align-items: center;
+      gap: 10px;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .viz-track {
+      height: 9px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #f1f5f9;
+    }
+
+    .viz-fill {
+      display: block;
+      height: 100%;
+      width: var(--value);
+      border-radius: inherit;
+      background: linear-gradient(90deg, #0f766e, #2563eb);
+      animation: growBar .75s ease both;
+    }
+
+    .viz-timeline {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      align-items: end;
+      gap: 8px;
+      height: 128px;
+      margin-top: 18px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .viz-column {
+      position: relative;
+      display: flex;
+      align-items: end;
+      justify-content: center;
+      height: 100%;
+    }
+
+    .viz-column i {
+      width: 100%;
+      max-width: 28px;
+      height: var(--height);
+      border-radius: 7px 7px 3px 3px;
+      background: linear-gradient(180deg, rgba(15,118,110,.9), rgba(15,118,110,.22));
+      animation: growColumn .8s ease both;
+    }
+
+    .viz-column span {
+      position: absolute;
+      bottom: -20px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    @keyframes growColumn {
+      from { height: 0; opacity: .4; }
+      to { height: var(--height); opacity: 1; }
+    }
+
     .module-mini-stats {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -878,6 +977,29 @@
       height: 100dvh;
     }
 
+    .editor.chat-collapsed {
+      grid-template-columns: 68px minmax(0, 1fr);
+    }
+
+    .editor.chat-collapsed .chat-panel {
+      overflow: visible;
+    }
+
+    .editor.chat-collapsed .chat-title,
+    .editor.chat-collapsed .chat-metrics,
+    .editor.chat-collapsed .ai-status,
+    .editor.chat-collapsed .messages,
+    .editor.chat-collapsed .quick-grid,
+    .editor.chat-collapsed .composer {
+      display: none;
+    }
+
+    .editor.chat-collapsed .chat-head {
+      justify-content: center;
+      padding: 12px 8px;
+      border-bottom: 0;
+    }
+
     .chat-panel {
       display: flex;
       flex-direction: column;
@@ -893,6 +1015,10 @@
       gap: 12px;
       padding: 16px;
       border-bottom: 1px solid var(--line);
+    }
+
+    .chat-toggle {
+      flex: 0 0 auto;
     }
 
     .chat-title strong { display: block; font-size: 17px; }
@@ -2240,6 +2366,12 @@
         display: none;
         grid-template-columns: 1fr;
       }
+      .editor.chat-collapsed {
+        grid-template-columns: 1fr;
+      }
+      .editor.chat-collapsed .chat-panel {
+        min-height: auto;
+      }
       .editor.active {
         display: block;
       }
@@ -2322,7 +2454,8 @@
         gap: 12px;
       }
       .dash-grid,
-      .overview-grid {
+      .overview-grid,
+      .viz-grid {
         grid-template-columns: 1fr;
       }
       .chat-metrics {
@@ -2518,6 +2651,19 @@
 
         <div class="task-board" id="taskBoard"></div>
 
+        <div class="viz-grid">
+          <section class="viz-card">
+            <h3 id="vizTrendTitle">Returned data trend</h3>
+            <p id="vizTrendSub">Publishing feedback flowing back into workflow memory.</p>
+            <div class="viz-timeline" id="vizTimeline"></div>
+          </section>
+          <section class="viz-card">
+            <h3 id="vizAgentTitle">Agent workload</h3>
+            <p id="vizAgentSub">How the current workflow distributes AI work.</p>
+            <div class="viz-bars" id="vizBars"></div>
+          </section>
+        </div>
+
         <div class="dash-grid">
           <div>
             <section class="dashboard-panel">
@@ -2560,6 +2706,9 @@
               <strong>Workflow Copilot</strong>
               <span>Describe a goal. The whiteboard creates agents, tasks, and feedback loops.</span>
             </div>
+            <button class="btn icon chat-toggle" id="toggleChatBtn" title="Collapse copilot" aria-label="Collapse copilot">
+              <svg id="toggleChatIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6"></path></svg>
+            </button>
             <button class="btn icon" id="clearChatBtn" title="Reset" aria-label="Reset">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v6h6"></path></svg>
             </button>
@@ -3000,6 +3149,9 @@
     let stackOrigin = { x: 360, y: 245 };
     let canvasMode = "select";
     let canvasPan = { x: 0, y: 0 };
+    let isChatCollapsed = false;
+    let boardPaintFrame = null;
+    let panFrame = null;
     let selectedTaskModule = "twitter";
     let runResults = {
       post: "pending",
@@ -3141,6 +3293,21 @@
         });
       });
 
+      const trendLabels = ["M", "T", "W", "T", "F", "S", "N"];
+      const trendValues = selectedTaskModule === "twitter" ? [38, 52, 46, 72, 88, 64, 96] : selectedTaskModule === "launch" ? [24, 44, 62, 58, 80, 74, 86] : [18, 28, 46, 42, 54, 61, 70];
+      $("#vizTrendTitle").textContent = currentLang === "zh" ? "\u56de\u4f20\u6570\u636e\u8d8b\u52bf" : "Returned data trend";
+      $("#vizTrendSub").textContent = currentLang === "zh" ? "\u53d1\u5e03\u53cd\u9988\u6b63\u5728\u56de\u6d41\u5230 workflow \u8bb0\u5fc6\u3002" : "Publishing feedback flowing back into workflow memory.";
+      $("#vizTimeline").innerHTML = trendValues.map((value, index) => `
+        <div class="viz-column"><i style="--height:${value}%"></i><span>${trendLabels[index]}</span></div>
+      `).join("");
+      const loadLabels = currentLang === "zh" ? ["写作", "发布", "分析", "复用"] : ["Writer", "Publish", "Analyze", "Reuse"];
+      const loads = selectedTaskModule === "twitter" ? [86, 72, 94, 68] : selectedTaskModule === "launch" ? [74, 88, 62, 52] : [48, 34, 82, 76];
+      $("#vizAgentTitle").textContent = currentLang === "zh" ? "Agent \u8d1f\u8f7d" : "Agent workload";
+      $("#vizAgentSub").textContent = currentLang === "zh" ? "\u5f53\u524d workflow \u7684 AI \u5de5\u4f5c\u5206\u5e03\u3002" : "How the current workflow distributes AI work.";
+      $("#vizBars").innerHTML = loads.map((value, index) => `
+        <div class="viz-bar"><span>${loadLabels[index]}</span><div class="viz-track"><i class="viz-fill" style="--value:${value}%"></i></div><strong>${value}%</strong></div>
+      `).join("");
+
       const runs = activeModule.runs;
       $("#runPanelTitle").textContent = currentLang === "zh" ? activeModule.panelZh : activeModule.panel;
       $("#runPanelSub").textContent = currentLang === "zh" ? activeModule.panelSubZh : activeModule.panelSub;
@@ -3268,6 +3435,29 @@
       $("#board").style.transform = `translate(${canvasPan.x}px, ${canvasPan.y}px)`;
       packageEl.style.left = `${stackOrigin.x + canvasPan.x}px`;
       packageEl.style.top = `${stackOrigin.y + canvasPan.y}px`;
+      renderChatCollapse();
+    }
+
+    function renderChatCollapse() {
+      const editor = $("#editorScreen");
+      if (!editor) return;
+      editor.classList.toggle("chat-collapsed", isChatCollapsed);
+      const label = isChatCollapsed
+        ? currentLang === "zh" ? "\u5c55\u5f00\u5bf9\u8bdd" : "Expand copilot"
+        : currentLang === "zh" ? "\u6536\u8d77\u5bf9\u8bdd" : "Collapse copilot";
+      const button = $("#toggleChatBtn");
+      if (!button) return;
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      $("#toggleChatIcon").innerHTML = isChatCollapsed
+        ? '<path d="M9 6l6 6-6 6"></path>'
+        : '<path d="M15 6 9 12l6 6"></path>';
+    }
+
+    function toggleChatPanel() {
+      isChatCollapsed = !isChatCollapsed;
+      renderCanvasMode();
+      requestBoardPaint();
     }
 
     function setCanvasMode(mode) {
@@ -3311,7 +3501,7 @@
         const done = runningStep > index;
         const running = activeLinkKey === key;
         const selected = selectedLinkKey === key;
-        return `<path class="link ${active ? "active" : ""} ${done ? "done" : ""} ${running ? "running" : ""} ${selected ? "selected-link" : ""}" data-link="${key}" marker-end="url(#arrow)" d="${curvePath(anchors)}" />`;
+        return `<path class="link ${active ? "active" : ""} ${done ? "done" : ""} ${running ? "running" : ""} ${selected ? "selected-link" : ""}" data-link="${key}" marker-end="url(#arrow)" d="${orthogonalPath(anchors)}" />`;
       }).join("");
 
       document.querySelectorAll(".link").forEach(path => {
@@ -3386,6 +3576,25 @@
       const c1 = { x: from.x + fromVector.x * distance, y: from.y + fromVector.y * distance };
       const c2 = { x: to.x + toVector.x * distance, y: to.y + toVector.y * distance };
       return `M ${from.x} ${from.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${to.x} ${to.y}`;
+    }
+
+    function orthogonalPath({ from, to }) {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      if (Math.abs(dy) < 24 || Math.abs(dx) < 24) {
+        return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+      }
+      const fromVector = sideVector(from.side);
+      const toVector = sideVector(to.side);
+      const lead = Math.max(34, Math.min(82, Math.abs(dx) * .22 + Math.abs(dy) * .08));
+      const start = { x: from.x + fromVector.x * lead, y: from.y + fromVector.y * lead };
+      const end = { x: to.x + toVector.x * lead, y: to.y + toVector.y * lead };
+      const midX = Math.round((start.x + end.x) / 2);
+      if (from.side === "bottom" || to.side === "top") {
+        const midY = Math.round((start.y + end.y) / 2);
+        return `M ${from.x} ${from.y} L ${start.x} ${start.y} L ${start.x} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y} L ${to.x} ${to.y}`;
+      }
+      return `M ${from.x} ${from.y} L ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y} L ${to.x} ${to.y}`;
     }
 
     function sideVector(side) {
@@ -3490,6 +3699,22 @@
           card.style.top = `${displayY(item, index)}px`;
           card.classList.add("dragging", "selected");
         }
+      });
+    }
+
+    function requestBoardPaint() {
+      if (boardPaintFrame) return;
+      boardPaintFrame = window.requestAnimationFrame(() => {
+        boardPaintFrame = null;
+        paintBoard();
+      });
+    }
+
+    function requestPanPaint() {
+      if (panFrame) return;
+      panFrame = window.requestAnimationFrame(() => {
+        panFrame = null;
+        renderCanvasMode();
       });
     }
 
@@ -3950,7 +4175,7 @@
           };
         });
       }
-      paintBoard();
+      requestBoardPaint();
     }
 
     function stopNodeDrag() {
@@ -4205,7 +4430,7 @@
         x: Math.round(panState.startX + event.clientX - panState.startClientX),
         y: Math.round(panState.startY + event.clientY - panState.startClientY)
       };
-      renderCanvasMode();
+      requestPanPaint();
     }
 
     function stopCanvasPan() {
@@ -4354,6 +4579,7 @@
       appendCopilot("assistant", currentLang === "zh" ? "\u63cf\u8ff0\u4f60\u8981\u7684\u7ed3\u679c\uff0c\u6211\u4f1a\u628a\u5b83\u62c6\u6210 AI \u5de5\u4f5c\u5305\u3002" : "Describe the outcome you want. I will turn it into an AI work package.");
     });
     $("#dashBtn").addEventListener("click", () => switchScreen("dashboard"));
+    $("#toggleChatBtn").addEventListener("click", toggleChatPanel);
     $("#autoLayoutBtn").addEventListener("click", autoLayout);
     $("#runBtn").addEventListener("click", runFlow);
     $("#publishBtn").addEventListener("click", () => toast("Published as runnable workflow"));
