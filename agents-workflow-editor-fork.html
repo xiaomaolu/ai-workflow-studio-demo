@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Workflow Studio - Twitter Micro Case</title>
+  <meta name="description" content="Interactive AI workflow studio demo for building, running, and learning from a Twitter auto-publishing workflow." />
+  <meta property="og:title" content="AI Workflow Studio Demo" />
+  <meta property="og:description" content="A visual AI workflow demo with copilot chat, runnable agents, workflow packages, and returned publishing metrics." />
+  <meta property="og:type" content="website" />
   <style>
     :root {
       --bg: #f4f7f8;
@@ -25,9 +29,14 @@
     }
 
     * { box-sizing: border-box; }
+    html {
+      height: 100%;
+      background: var(--bg);
+    }
+
     body {
       margin: 0;
-      min-height: 100vh;
+      min-height: 100%;
       overflow: hidden;
       color: var(--ink);
       background:
@@ -40,10 +49,68 @@
     button { border: 0; color: inherit; background: none; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease, color .16s ease; }
     button:active { transform: scale(.98); }
 
+    body.booting .screen,
+    body.booting .rail {
+      opacity: 0;
+    }
+
+    .preview-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 45% 35%, rgba(15,127,114,.12), transparent 320px),
+        var(--bg);
+      transition: opacity .24s ease, visibility .24s ease;
+    }
+
+    body:not(.booting) .preview-loader {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .loader-card {
+      display: grid;
+      gap: 12px;
+      min-width: 260px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.86);
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+
+    .loader-card strong { font-size: 17px; }
+    .loader-card span { color: var(--muted); font-size: 13px; }
+    .loader-dots {
+      display: flex;
+      justify-content: center;
+      gap: 7px;
+    }
+    .loader-dots i {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--data);
+      animation: loaderDot .8s ease-in-out infinite alternate;
+    }
+    .loader-dots i:nth-child(2) { animation-delay: .12s; }
+    .loader-dots i:nth-child(3) { animation-delay: .24s; }
+    @keyframes loaderDot {
+      from { transform: translateY(0); opacity: .45; }
+      to { transform: translateY(-6px); opacity: 1; }
+    }
+
     .app {
       display: grid;
       grid-template-columns: 72px minmax(0, 1fr);
       height: 100vh;
+      height: 100dvh;
+      min-width: 0;
     }
 
     .rail {
@@ -790,9 +857,10 @@
 
     .editor {
       display: none;
-      grid-template-columns: 380px minmax(0, 1fr);
-      min-width: 1040px;
+      grid-template-columns: clamp(300px, 26vw, 380px) minmax(0, 1fr);
+      min-width: 0;
       height: 100vh;
+      height: 100dvh;
     }
 
     .chat-panel {
@@ -950,7 +1018,7 @@
 
     .board-top {
       display: grid;
-      grid-template-columns: minmax(280px, 1fr) auto auto;
+      grid-template-columns: minmax(260px, 1fr) minmax(320px, 460px) auto;
       align-items: center;
       gap: 14px;
       padding: 4px 4px 12px;
@@ -990,7 +1058,7 @@
       display: grid;
       grid-template-columns: repeat(4, minmax(94px, 1fr));
       gap: 8px;
-      min-width: 460px;
+      min-width: 0;
     }
 
     .result-card {
@@ -1019,6 +1087,7 @@
       position: relative;
       flex: 1;
       height: calc(100vh - 84px);
+      height: calc(100dvh - 84px);
       min-height: 0;
       overflow: hidden;
       cursor: default;
@@ -1936,9 +2005,231 @@
     }
 
     .selection-box.active { display: block; }
+
+    @media (max-width: 1480px) {
+      .board-top {
+        grid-template-columns: minmax(240px, 1fr) minmax(280px, 380px) auto;
+        gap: 10px;
+      }
+      .result-strip {
+        grid-template-columns: repeat(2, minmax(118px, 1fr));
+      }
+      .result-card {
+        padding: 8px 9px;
+      }
+      .tool-row {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        max-width: 260px;
+      }
+      .board-title h2 {
+        font-size: 18px;
+      }
+      .goal-strip {
+        max-width: 100%;
+        white-space: normal;
+        border-radius: 10px;
+      }
+    }
+
+    @media (max-width: 1180px) {
+      body {
+        overflow: auto;
+      }
+      .app {
+        min-height: 100dvh;
+        height: auto;
+      }
+      .editor {
+        grid-template-columns: 330px minmax(0, 1fr);
+        min-height: 100dvh;
+        height: auto;
+      }
+      .chat-panel {
+        height: calc(100dvh - 28px);
+        min-height: 620px;
+      }
+      .board-area {
+        min-height: 720px;
+      }
+      .board-top {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+      }
+      .result-strip {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+      .tool-row {
+        justify-content: flex-start;
+        max-width: none;
+      }
+      .board-shell {
+        height: 680px;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 56px minmax(0, 1fr);
+      }
+      .rail {
+        padding: 10px 7px;
+      }
+      .nav-btn,
+      .mark {
+        width: 38px;
+        height: 38px;
+      }
+      .home,
+      .dashboard {
+        padding: 14px;
+      }
+      .home-shell {
+        grid-template-columns: 1fr;
+      }
+      .editor {
+        display: none;
+        grid-template-columns: 1fr;
+      }
+      .editor.active {
+        display: block;
+      }
+      .chat-panel {
+        height: auto;
+        min-height: 430px;
+        margin: 10px;
+      }
+      .messages {
+        max-height: 320px;
+      }
+      .board-area {
+        padding: 10px;
+        min-height: 660px;
+      }
+      .board-top {
+        padding-top: 0;
+      }
+      .result-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .board-shell {
+        height: 620px;
+      }
+      .work-package {
+        width: min(430px, calc(100% - 28px));
+        padding: 18px;
+      }
+      .package-meta {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .package-meta .wide {
+        grid-column: 1 / -1;
+      }
+      .drawer {
+        inset: 10px;
+        width: auto;
+        max-height: calc(100% - 20px);
+      }
+      .floating-tools {
+        right: 12px;
+        bottom: 12px;
+      }
+      .data-viz {
+        right: 62px;
+        width: min(280px, calc(100% - 86px));
+      }
+    }
+
+    @media (max-width: 620px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+      .rail {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        flex-direction: row;
+        justify-content: center;
+        height: 58px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .nav-spacer {
+        display: none;
+      }
+      .mark-menu {
+        left: 12px;
+        top: 64px;
+      }
+      .screen {
+        height: auto;
+        min-height: calc(100dvh - 58px);
+      }
+      .dashboard-head,
+      .panel-head,
+      .task-module-top,
+      .package-top {
+        display: grid;
+        gap: 12px;
+      }
+      .dash-grid,
+      .overview-grid {
+        grid-template-columns: 1fr;
+      }
+      .chat-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        padding: 10px;
+      }
+      .chat-metric {
+        padding: 8px;
+      }
+      .quick-grid {
+        grid-template-columns: 1fr;
+      }
+      .composer {
+        grid-template-columns: 1fr;
+      }
+      .composer .btn {
+        min-height: 42px;
+        width: 100%;
+      }
+      .board-title h2 {
+        white-space: normal;
+      }
+      .result-strip {
+        grid-template-columns: 1fr 1fr;
+      }
+      .tool-row .btn:not(.icon) {
+        flex: 1 1 130px;
+      }
+      .board-shell {
+        height: 560px;
+      }
+      .node {
+        width: 190px;
+      }
+      .node.collapsed {
+        width: 220px;
+      }
+      .work-package {
+        left: 20px !important;
+        width: calc(100% - 40px);
+      }
+      .package-actions,
+      .next-actions {
+        flex-wrap: wrap;
+      }
+    }
   </style>
 </head>
-<body>
+<body class="booting">
+  <div class="preview-loader" aria-hidden="true">
+    <div class="loader-card">
+      <strong>AI Workflow Studio</strong>
+      <span>Preparing preview</span>
+      <div class="loader-dots"><i></i><i></i><i></i></div>
+    </div>
+  </div>
   <div class="app">
     <aside class="rail" aria-label="Navigation">
       <div class="mark-wrap">
@@ -4000,7 +4291,8 @@
       const input = $("#promptInput");
       const text = input.value.trim();
       if (!text) return;
-      $("#messages").insertAdjacentHTML("beforeend", `<div class="msg user">${text}</div><div class="msg">Understood. I updated agents, tasks, data return, and reusable assets.</div>`);
+      appendCopilot("user", text);
+      appendCopilot("assistant", currentLang === "zh" ? "\u660e\u767d\u3002\u6211\u5df2\u66f4\u65b0 Agent\u3001\u4efb\u52a1\u3001\u6570\u636e\u56de\u4f20\u548c\u53ef\u590d\u7528\u8d44\u4ea7\u3002" : "Understood. I updated agents, tasks, data return, and reusable assets.");
       $("#messages").scrollTop = $("#messages").scrollHeight;
       input.value = "";
       generateFromPrompt(text);
@@ -4010,6 +4302,9 @@
     renderMessages();
     renderLanguage();
     renderBoard();
+    window.requestAnimationFrame(() => {
+      document.body.classList.remove("booting");
+    });
   </script>
 </body>
 </html>
