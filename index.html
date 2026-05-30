@@ -1644,23 +1644,30 @@
     }
     .link {
       fill: none;
-      stroke: #9aa9b6;
-      stroke-width: 2.4;
+      stroke: #94a3b8;
+      stroke-width: 2.6;
       stroke-linecap: round;
+      stroke-linejoin: round;
       vector-effect: non-scaling-stroke;
       cursor: pointer;
       pointer-events: stroke;
+      filter: drop-shadow(0 1px 0 rgba(255,255,255,.72));
+      transition: stroke .18s ease, stroke-width .18s ease, opacity .18s ease, filter .18s ease;
     }
-    .link.active { stroke: var(--data); stroke-width: 3.2; }
+    .link:hover {
+      stroke: #64748b;
+      stroke-width: 3.2;
+    }
+    .link.active { stroke: var(--data); stroke-width: 3.25; }
     .link.running {
       stroke: var(--data);
-      stroke-width: 3.4;
+      stroke-width: 3.45;
       stroke-dasharray: 14 10;
       animation: flowDash .75s linear infinite;
       filter: drop-shadow(0 0 7px rgba(15,127,114,.35));
     }
     .link.done { stroke: rgba(15,127,114,.62); }
-    .link.selected-link { stroke: var(--agent); stroke-width: 3.8; }
+    .link.selected-link { stroke: var(--agent); stroke-width: 3.8; filter: drop-shadow(0 0 8px rgba(37,99,235,.22)); }
 
     @keyframes flowDash {
       to { stroke-dashoffset: -48; }
@@ -2973,8 +2980,17 @@
               </div>
               <svg class="links" id="linksSvg" aria-hidden="true">
                 <defs>
-                  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa9b6"></path>
+                  <marker id="arrow" viewBox="0 0 14 14" refX="11.4" refY="7" markerWidth="9" markerHeight="9" orient="auto" markerUnits="strokeWidth">
+                    <path d="M2 2.5 11.5 7 2 11.5 4.6 7z" fill="#94a3b8"></path>
+                  </marker>
+                  <marker id="arrowActive" viewBox="0 0 14 14" refX="11.4" refY="7" markerWidth="9" markerHeight="9" orient="auto" markerUnits="strokeWidth">
+                    <path d="M2 2.5 11.5 7 2 11.5 4.6 7z" fill="#0f7f72"></path>
+                  </marker>
+                  <marker id="arrowDone" viewBox="0 0 14 14" refX="11.4" refY="7" markerWidth="9" markerHeight="9" orient="auto" markerUnits="strokeWidth">
+                    <path d="M2 2.5 11.5 7 2 11.5 4.6 7z" fill="rgba(15,127,114,.72)"></path>
+                  </marker>
+                  <marker id="arrowSelected" viewBox="0 0 14 14" refX="11.4" refY="7" markerWidth="10" markerHeight="10" orient="auto" markerUnits="strokeWidth">
+                    <path d="M2 2.5 11.5 7 2 11.5 4.6 7z" fill="#2563eb"></path>
                   </marker>
                 </defs>
                 <g id="linksLayer"></g>
@@ -3700,7 +3716,8 @@
         const done = runningStep > index;
         const running = activeLinkKey === key;
         const selected = selectedLinkKey === key;
-        return `<path class="link ${active ? "active" : ""} ${done ? "done" : ""} ${running ? "running" : ""} ${selected ? "selected-link" : ""}" data-link="${key}" marker-end="url(#arrow)" d="${orthogonalPath(anchors)}" />`;
+        const marker = selected ? "arrowSelected" : running || active ? "arrowActive" : done ? "arrowDone" : "arrow";
+        return `<path class="link ${active ? "active" : ""} ${done ? "done" : ""} ${running ? "running" : ""} ${selected ? "selected-link" : ""}" data-link="${key}" marker-end="url(#${marker})" d="${orthogonalPath(anchors)}" />`;
       }).join("");
 
       document.querySelectorAll(".link").forEach(path => {
@@ -3718,8 +3735,8 @@
       candidates.sort((one, two) => one.score - two.score);
       const best = candidates[0];
       return {
-        from: offsetPoint(best.from, 8),
-        to: offsetPoint(best.to, 10)
+        from: offsetPoint(best.from, 16),
+        to: offsetPoint(best.to, 18)
       };
     }
 
@@ -3791,9 +3808,42 @@
       const midX = Math.round((start.x + end.x) / 2);
       if (from.side === "bottom" || to.side === "top") {
         const midY = Math.round((start.y + end.y) / 2);
-        return `M ${from.x} ${from.y} L ${start.x} ${start.y} L ${start.x} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y} L ${to.x} ${to.y}`;
+        return roundedPath([from, start, { x: start.x, y: midY }, { x: end.x, y: midY }, end, to], 14);
       }
-      return `M ${from.x} ${from.y} L ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y} L ${to.x} ${to.y}`;
+      return roundedPath([from, start, { x: midX, y: start.y }, { x: midX, y: end.y }, end, to], 14);
+    }
+
+    function roundedPath(points, radius = 12) {
+      const compact = points.filter((point, index) => {
+        if (!index) return true;
+        const previous = points[index - 1];
+        return Math.abs(point.x - previous.x) > .5 || Math.abs(point.y - previous.y) > .5;
+      });
+      if (compact.length < 3) return `M ${compact[0].x} ${compact[0].y} L ${compact[compact.length - 1].x} ${compact[compact.length - 1].y}`;
+      const commands = [`M ${compact[0].x} ${compact[0].y}`];
+      for (let index = 1; index < compact.length - 1; index += 1) {
+        const previous = compact[index - 1];
+        const current = compact[index];
+        const next = compact[index + 1];
+        const before = Math.hypot(current.x - previous.x, current.y - previous.y);
+        const after = Math.hypot(next.x - current.x, next.y - current.y);
+        const bend = Math.min(radius, before / 2, after / 2);
+        const start = moveToward(current, previous, bend);
+        const end = moveToward(current, next, bend);
+        commands.push(`L ${start.x} ${start.y}`);
+        commands.push(`Q ${current.x} ${current.y} ${end.x} ${end.y}`);
+      }
+      const last = compact[compact.length - 1];
+      commands.push(`L ${last.x} ${last.y}`);
+      return commands.join(" ");
+    }
+
+    function moveToward(from, to, distance) {
+      const length = Math.max(1, Math.hypot(to.x - from.x, to.y - from.y));
+      return {
+        x: Math.round((from.x + (to.x - from.x) / length * distance) * 10) / 10,
+        y: Math.round((from.y + (to.y - from.y) / length * distance) * 10) / 10
+      };
     }
 
     function sideVector(side) {
