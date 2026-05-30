@@ -279,6 +279,12 @@
     .btn.icon { width: 36px; padding: 0; }
     .btn.danger { border-color: rgba(189,63,95,.3); color: var(--human); background: var(--human-soft); }
     .btn.full { width: 100%; margin-bottom: 8px; }
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: .48;
+      transform: none;
+      box-shadow: none;
+    }
 
     .btn svg {
       width: 18px;
@@ -1870,6 +1876,17 @@
       background: var(--data);
       box-shadow: 0 12px 26px rgba(15,127,114,.18);
     }
+
+    .stack-icon-btn.danger {
+      color: var(--human);
+      border-color: rgba(189,63,95,.22);
+    }
+
+    .stack-icon-btn.danger:hover {
+      color: white;
+      background: var(--human);
+      box-shadow: 0 12px 26px rgba(189,63,95,.18);
+    }
     .stack-icon-btn svg {
       width: 17px;
       height: 17px;
@@ -2177,6 +2194,24 @@
       background: var(--data-soft);
       transform: translateY(-1px);
       box-shadow: 0 16px 34px rgba(32,45,55,.14);
+    }
+
+    .tool-fab.danger {
+      color: var(--human);
+      border-color: rgba(189,63,95,.24);
+    }
+
+    .tool-fab.danger:hover {
+      color: var(--human);
+      border-color: rgba(189,63,95,.34);
+      background: var(--human-soft);
+    }
+
+    .tool-fab:disabled {
+      cursor: not-allowed;
+      opacity: .42;
+      transform: none;
+      box-shadow: none;
     }
 
     .tool-fab:active,
@@ -2868,6 +2903,7 @@
               <button class="btn icon" id="autoLayoutBtn" title="Auto layout" aria-label="Auto layout">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6v6H4z"></path><path d="M14 4h6v6h-6z"></path><path d="M14 14h6v6h-6z"></path><path d="M10 10l4-3"></path><path d="M10 13l4 4"></path></svg>
               </button>
+              <button class="btn danger" id="deleteTopBtn">Delete selected</button>
               <button class="btn icon" id="runBtn" title="Run or pause workflow" aria-label="Run or pause workflow">
                 <svg id="runIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
               </button>
@@ -2918,6 +2954,7 @@
               <div class="package-actions">
                 <button class="btn primary" id="packageRunBtn">Run package</button>
                 <button class="btn" id="packageExpandBtn">Expand details</button>
+                <button class="btn danger" id="packageDeleteBtn">Delete package</button>
               </div>
               <div class="ai-recommendations" id="aiRecommendations">
                 <div class="recommendation"><span id="winnerLabel">Winner</span><strong id="winnerInsight">Workflow-style hook</strong></div>
@@ -2988,6 +3025,9 @@
               </button>
               <button class="tool-fab" id="collapseBtn" title="Stack / expand flow">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8h10"></path><path d="M5 12h14"></path><path d="M8 16h8"></path></svg>
+              </button>
+              <button class="tool-fab danger" id="deleteSelectionBtn" title="Delete selection">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M6 6l1 15h10l1-15"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
               </button>
               <button class="tool-fab" id="focusBtn" title="Focus running work">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"></circle><path d="M12 9v3l2 2"></path></svg>
@@ -3517,6 +3557,7 @@
         ? currentLang === "zh" ? "\u518d\u8dd1\u4e00\u6b21" : "Run again"
         : currentLang === "zh" ? "\u8fd0\u884c\u5de5\u4f5c\u5305" : "Run package";
       $("#packageExpandBtn").textContent = currentLang === "zh" ? "\u5c55\u5f00\u7ec6\u8282" : "Expand details";
+      $("#packageDeleteBtn").textContent = currentLang === "zh" ? "\u5220\u9664\u6587\u4ef6\u5939" : "Delete folder";
       document.querySelectorAll(".next-chip").forEach((button, index) => {
         const labels = currentLang === "zh"
           ? ["\u8f6c\u6210 thread", "\u590d\u6d4b hook", "\u5b89\u6392\u4e0b\u4e00\u6761"]
@@ -3549,17 +3590,41 @@
       packageEl.style.left = `${stackOrigin.x + canvasPan.x}px`;
       packageEl.style.top = `${stackOrigin.y + canvasPan.y}px`;
       renderWorkflowZone();
+      renderDeleteSelectionButton();
       renderChatCollapse();
+    }
+
+    function renderDeleteSelectionButton() {
+      const buttons = [$("#deleteSelectionBtn"), $("#deleteTopBtn")].filter(Boolean);
+      if (!buttons.length) return;
+      const selectedIds = selectedExistingNodeIds();
+      const workflowIds = workflowNodeIds("twitter");
+      const hasOpenFolder = Boolean(openWorkflowId && workflowIds.length);
+      const hasResultPackage = Boolean(isPackageMode && packageState === "result" && workflowIds.length);
+      const wholeWorkflowSelected = isWholeWorkflowSelection("twitter", selectedIds);
+      const willDeleteFolder = wholeWorkflowSelected || (!selectedIds.length && (hasOpenFolder || hasResultPackage));
+      const enabled = selectedIds.length > 0 || hasOpenFolder || hasResultPackage;
+      const title = currentLang === "zh"
+        ? willDeleteFolder ? "\u5220\u9664 workflow \u6587\u4ef6\u5939" : selectedIds.length > 1 ? "\u5220\u9664\u9009\u4e2d\u8282\u70b9" : "\u5220\u9664\u8282\u70b9"
+        : willDeleteFolder ? "Delete workflow folder" : selectedIds.length > 1 ? "Delete selected nodes" : "Delete node";
+      const fallbackTitle = currentLang === "zh" ? "\u5148\u9009\u62e9\u8282\u70b9\u6216\u6253\u5f00\u6587\u4ef6\u5939" : "Select a node or open a folder first";
+      buttons.forEach(button => {
+        button.disabled = !enabled;
+        button.title = enabled ? title : fallbackTitle;
+        button.setAttribute("aria-label", button.title);
+      });
+      const topButton = $("#deleteTopBtn");
+      if (topButton) topButton.textContent = enabled ? title : currentLang === "zh" ? "\u5220\u9664" : "Delete";
     }
 
     function renderWorkflowZone() {
       const zone = $("#workflowZone");
       if (!zone) return;
-      if (!openWorkflowId || isCollapsed) {
+      const nodes = openWorkflowId ? workflowNodes(openWorkflowId) : [];
+      if (!openWorkflowId || isCollapsed || !nodes.length) {
         zone.style.display = "";
         return;
       }
-      const nodes = workflowNodes(openWorkflowId);
       const padding = 44;
       const minX = Math.min(...nodes.map(item => item.x));
       const minY = Math.min(...nodes.map(item => item.y));
@@ -3773,6 +3838,14 @@
           runFlow();
         });
       });
+      document.querySelectorAll("[data-delete-flow]").forEach(button => {
+        button.addEventListener("pointerdown", event => event.stopPropagation());
+        button.addEventListener("click", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          deleteWorkflowFolder("twitter", { confirm: true });
+        });
+      });
     }
 
     function paintRegularNode(item, index) {
@@ -3806,6 +3879,7 @@
       const subtitle = currentLang === "zh" ? "AI 工作包" : "AI work package";
       const expandTitle = currentLang === "zh" ? "\u5c55\u5f00 workflow" : "Expand workflow";
       const runTitle = currentLang === "zh" ? "\u8fd0\u884c" : "Run";
+      const deleteTitle = currentLang === "zh" ? "\u5220\u9664 workflow \u6587\u4ef6\u5939" : "Delete workflow folder";
       if (!front) {
         return `
           <button class="node collapsed ${layerClass} ${hidden ? "stack-hidden" : ""}" data-id="${item.id}" data-type="${item.type}" style="left:${displayX(item, index)}px; top:${displayY(item, index)}px; z-index:${9 - index}">
@@ -3823,6 +3897,9 @@
               </span>
               <span class="stack-icon-btn" data-expand-flow title="${expandTitle}">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M16 3h3a2 2 0 0 1 2 2v3"></path><path d="M8 21H5a2 2 0 0 1-2-2v-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>
+              </span>
+              <span class="stack-icon-btn danger" data-delete-flow title="${deleteTitle}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M6 6l1 15h10l1-15"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
               </span>
             </span>
           </div>
@@ -4102,6 +4179,19 @@
       return `${from}->${to}`;
     }
 
+    function workflowNodeIds(workflowId = "twitter") {
+      return workflowNodes(workflowId).map(item => item.id);
+    }
+
+    function selectedExistingNodeIds() {
+      return Array.from(selectedNodeIds).filter(id => flow.nodes.some(item => item.id === id));
+    }
+
+    function isWholeWorkflowSelection(workflowId = "twitter", ids = selectedExistingNodeIds()) {
+      const workflowIds = workflowNodeIds(workflowId);
+      return workflowIds.length > 0 && ids.length === workflowIds.length && workflowIds.every(id => ids.includes(id));
+    }
+
     function iconFor(type) {
       return i18n[currentLang].iconLabels[type] || i18n[currentLang].iconLabels.agent;
     }
@@ -4202,12 +4292,88 @@
     }
 
     function deleteNode(id) {
-      const target = flow.nodes.find(item => item.id === id);
-      if (!target) return;
-      flow.nodes = flow.nodes.filter(item => item.id !== id);
-      flow.links = flow.links.filter(([from, to]) => from !== id && to !== id);
-      closeDrawer();
-      toast(`Deleted ${target.title}`);
+      deleteNodes([id], { confirm: false });
+    }
+
+    function deleteSelection({ confirm = true } = {}) {
+      const selectedIds = selectedExistingNodeIds();
+      if (isWholeWorkflowSelection("twitter", selectedIds) || (!selectedIds.length && openWorkflowId === "twitter") || (!selectedIds.length && isPackageMode && packageState === "result")) {
+        return deleteWorkflowFolder("twitter", { confirm });
+      }
+      const ids = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
+      if (!ids.length) {
+        toast(currentLang === "zh" ? "\u5148\u9009\u62e9\u8981\u5220\u9664\u7684\u8282\u70b9\u6216\u6587\u4ef6\u5939" : "Select a node or folder first");
+        return false;
+      }
+      return deleteNodes(ids, { confirm });
+    }
+
+    function deleteWorkflowFolder(workflowId = "twitter", { confirm = true } = {}) {
+      const ids = workflowNodeIds(workflowId);
+      if (!ids.length) {
+        toast(currentLang === "zh" ? "\u6ca1\u6709\u53ef\u5220\u9664\u7684 workflow \u6587\u4ef6\u5939" : "No workflow folder to delete");
+        return false;
+      }
+      const message = currentLang === "zh"
+        ? `\u5220\u9664\u6574\u4e2a workflow \u6587\u4ef6\u5939\uff1f\u8fd9\u4f1a\u79fb\u9664 ${ids.length} \u4e2a\u8282\u70b9\u53ca\u5176\u8fde\u7ebf\u3002`
+        : `Delete the whole workflow folder? This removes ${ids.length} nodes and their links.`;
+      if (confirm && !window.confirm(message)) return false;
+      const deleted = deleteNodes(ids, { confirm: false, quiet: true });
+      if (!deleted) return false;
+      openWorkflowId = null;
+      isCollapsed = false;
+      isPackageMode = false;
+      packageState = "ready";
+      runResults = { post: "pending", views: "--", engage: "--", assets: "0" };
+      appendCopilot("assistant", currentLang === "zh" ? "\u5df2\u5220\u9664 workflow \u6587\u4ef6\u5939\uff0c\u753b\u677f\u4fdd\u7559\u5269\u4f59\u72ec\u7acb\u8282\u70b9\u3002" : "Deleted the workflow folder. Remaining standalone nodes stay on the canvas.");
+      renderBoard();
+      toast(currentLang === "zh" ? "\u5df2\u5220\u9664 workflow \u6587\u4ef6\u5939" : "Workflow folder deleted");
+      return true;
+    }
+
+    function deleteNodes(ids, { confirm = false, quiet = false } = {}) {
+      const idSet = new Set(ids);
+      const targets = flow.nodes.filter(item => idSet.has(item.id));
+      if (!targets.length) return false;
+      const message = currentLang === "zh"
+        ? targets.length > 1 ? `\u5220\u9664 ${targets.length} \u4e2a\u8282\u70b9\u53ca\u5176\u8fde\u7ebf\uff1f` : `\u5220\u9664\u8282\u70b9\u201c${targets[0].title}\u201d\uff1f`
+        : targets.length > 1 ? `Delete ${targets.length} nodes and their links?` : `Delete "${targets[0].title}"?`;
+      if (confirm && !window.confirm(message)) return false;
+
+      const touchesActiveRun = targets.some(item => item.status === "running") || (activeLinkKey && linkTouchesDeletedNode(activeLinkKey, idSet));
+      if (touchesActiveRun) {
+        window.clearInterval(runTimer);
+        isRunning = false;
+        runningStep = -1;
+        activeLinkKey = null;
+      }
+
+      flow.nodes = flow.nodes.filter(item => !idSet.has(item.id));
+      flow.links = flow.links.filter(([from, to]) => !idSet.has(from) && !idSet.has(to));
+      selectedNodeIds = new Set(selectedExistingNodeIds().filter(id => !idSet.has(id)));
+      if (selectedId && idSet.has(selectedId)) selectedId = null;
+      if (selectedLinkKey && linkTouchesDeletedNode(selectedLinkKey, idSet)) selectedLinkKey = null;
+      if (openWorkflowId && !workflowNodes(openWorkflowId).length) openWorkflowId = null;
+      if (!workflowNodes("twitter").length) {
+        isCollapsed = false;
+        if (isPackageMode) isPackageMode = false;
+        packageState = "ready";
+      }
+      closeDrawerIfOpen();
+      closeLinkLogIfOpen();
+      renderBoard();
+      if (!quiet) {
+        const deletedLabel = targets.length > 1
+          ? currentLang === "zh" ? `\u5df2\u5220\u9664 ${targets.length} \u4e2a\u8282\u70b9` : `Deleted ${targets.length} nodes`
+          : currentLang === "zh" ? `\u5df2\u5220\u9664 ${targets[0].title}` : `Deleted ${targets[0].title}`;
+        toast(deletedLabel);
+      }
+      return true;
+    }
+
+    function linkTouchesDeletedNode(key, idSet) {
+      const [from, to] = key.split("->");
+      return idSet.has(from) || idSet.has(to);
     }
 
     function closeDrawer() {
@@ -4244,7 +4410,7 @@
     function startNodeDrag(event) {
       if (event.button !== 0) return;
       if (canvasMode !== "select") return;
-      if (event.target.closest("[data-stack-flow], [data-expand-flow], [data-run-package]")) return;
+      if (event.target.closest("[data-stack-flow], [data-expand-flow], [data-run-package], [data-delete-flow]")) return;
       const card = event.currentTarget;
       const item = flow.nodes.find(node => node.id === card.dataset.id);
       if (!item) return;
@@ -4337,6 +4503,13 @@
         toast(state.packageDrag ? "Workflow folder moved" : state.ids.length > 1 ? "Selection moved" : "Node moved");
       } else {
         if (state.packageDrag) return;
+        if (state.collapsed) {
+          selectedNodeIds = new Set(state.ids);
+          selectedId = state.ids[0] || null;
+          renderBoard();
+          toast(currentLang === "zh" ? "\u5df2\u9009\u4e2d workflow \u6587\u4ef6\u5939" : "Workflow folder selected");
+          return;
+        }
         openNode(state.ids[state.ids.length - 1]);
       }
     }
@@ -4446,6 +4619,10 @@
         pauseFlow();
         return;
       }
+      if (!flow.nodes.length) {
+        toast(currentLang === "zh" ? "\u5148\u521b\u5efa\u8282\u70b9\u6216 workflow" : "Create a node or workflow first");
+        return;
+      }
       packageState = "ready";
       canvasMode = "select";
       openWorkflowId = "twitter";
@@ -4506,6 +4683,10 @@
     }
 
     function toggleCollapsed() {
+      if (!workflowNodes("twitter").length) {
+        toast(currentLang === "zh" ? "\u6ca1\u6709\u53ef\u6536\u8d77\u7684 workflow \u6587\u4ef6\u5939" : "No workflow folder to stack");
+        return;
+      }
       if (!isCollapsed && !isPackageMode) {
         stackWorkflow();
       } else {
@@ -4519,6 +4700,10 @@
     }
 
     function stackWorkflow() {
+      if (!workflowNodes("twitter").length) {
+        toast(currentLang === "zh" ? "\u6ca1\u6709\u53ef\u6536\u8d77\u7684 workflow \u6587\u4ef6\u5939" : "No workflow folder to stack");
+        return;
+      }
       openWorkflowId = null;
       isPackageMode = false;
       isCollapsed = true;
@@ -4677,6 +4862,14 @@
       toast.timer = window.setTimeout(() => element.classList.remove("show"), 1700);
     }
 
+    function handleDeleteShortcut(event) {
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+      const active = document.activeElement;
+      if (active && (active.closest("input, textarea, select") || active.isContentEditable)) return;
+      event.preventDefault();
+      deleteSelection({ confirm: true });
+    }
+
     document.querySelectorAll(".nav-btn[data-screen]").forEach(button => {
       button.addEventListener("click", () => switchScreen(button.dataset.screen));
     });
@@ -4729,6 +4922,7 @@
     $("#dashBtn").addEventListener("click", () => switchScreen("dashboard"));
     $("#toggleChatBtn").addEventListener("click", toggleChatPanel);
     $("#autoLayoutBtn").addEventListener("click", autoLayout);
+    $("#deleteTopBtn").addEventListener("click", () => deleteSelection({ confirm: true }));
     $("#runBtn").addEventListener("click", runFlow);
     $("#publishBtn").addEventListener("click", () => toast("Published as runnable workflow"));
     $("#markBtn").addEventListener("click", event => {
@@ -4778,7 +4972,9 @@
       toast("Reset complete");
     });
     $("#collapseBtn").addEventListener("click", toggleCollapsed);
+    $("#deleteSelectionBtn").addEventListener("click", () => deleteSelection({ confirm: true }));
     $("#packageRunBtn").addEventListener("click", runFlow);
+    $("#packageDeleteBtn").addEventListener("click", () => deleteWorkflowFolder("twitter", { confirm: true }));
     $("#packageExpandBtn").addEventListener("click", () => {
       canvasMode = "select";
       openWorkflowId = "twitter";
@@ -4835,6 +5031,7 @@
       input.value = "";
       generateFromPrompt(text);
     });
+    document.addEventListener("keydown", handleDeleteShortcut);
 
     renderDashboard();
     renderMessages();
