@@ -1668,6 +1668,13 @@
     }
     .link.done { stroke: rgba(15,127,114,.62); }
     .link.selected-link { stroke: var(--agent); stroke-width: 3.8; filter: drop-shadow(0 0 8px rgba(37,99,235,.22)); }
+    .link.suggestion-link {
+      stroke: rgba(15,127,114,.5);
+      stroke-width: 2.4;
+      stroke-dasharray: 7 8;
+      filter: drop-shadow(0 0 8px rgba(15,127,114,.12));
+      pointer-events: none;
+    }
 
     @keyframes flowDash {
       to { stroke-dashoffset: -48; }
@@ -1803,6 +1810,58 @@
     .node.standalone-node:hover::after {
       border-color: rgba(15,118,110,.35);
       background: rgba(240,253,250,.24);
+    }
+    .next-node-suggestion {
+      position: absolute;
+      z-index: 4;
+      width: 210px;
+      min-height: 122px;
+      padding: 14px;
+      border: 1px dashed rgba(15,127,114,.42);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.88);
+      box-shadow: 0 18px 42px rgba(15,23,42,.08);
+      text-align: left;
+      backdrop-filter: blur(12px);
+      animation: suggestionIn .22s ease both;
+    }
+    .next-node-suggestion::before {
+      content: "";
+      position: absolute;
+      inset: -7px;
+      z-index: -1;
+      border-radius: 18px;
+      background: rgba(240,253,250,.42);
+      pointer-events: none;
+    }
+    .next-node-suggestion .node-top {
+      pointer-events: none;
+    }
+    .next-node-suggestion h3 {
+      margin-top: 12px;
+      font-size: 16px;
+      line-height: 1.25;
+    }
+    .next-node-suggestion p {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .next-node-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .next-node-actions .btn {
+      min-height: 30px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+    @keyframes suggestionIn {
+      from { opacity: 0; transform: translateX(-8px) scale(.98); }
+      to { opacity: 1; transform: translateX(0) scale(1); }
     }
     .node.collapsed {
       width: 248px;
@@ -1982,6 +2041,9 @@
     .node[data-type="task"] .node-icon { color: var(--task); background: var(--task-soft); }
     .node[data-type="human"] .node-icon { color: var(--human); background: var(--human-soft); }
     .node[data-type="data"] .node-icon { color: var(--data); background: var(--data-soft); }
+    .next-node-suggestion[data-type="task"] .node-icon { color: var(--task); background: var(--task-soft); }
+    .next-node-suggestion[data-type="human"] .node-icon { color: var(--human); background: var(--human-soft); }
+    .next-node-suggestion[data-type="data"] .node-icon { color: var(--data); background: var(--data-soft); }
 
     .node h3 { margin-top: 12px; font-size: 16px; line-height: 1.25; }
     .node p {
@@ -3689,8 +3751,9 @@
       const shell = $("#boardShell");
       const svg = $("#linksSvg");
       const nodes = visibleNodes();
-      const width = Math.max(shell.clientWidth, ...nodes.map(item => item.x + 260), 1200);
-      const height = Math.max(shell.clientHeight, ...nodes.map(item => item.y + 180), 760);
+      const suggestion = selectedNextSuggestion();
+      const width = Math.max(shell.clientWidth, ...nodes.map(item => item.x + 260), suggestion ? suggestion.x + 260 : 0, 1200);
+      const height = Math.max(shell.clientHeight, ...nodes.map(item => item.y + 180), suggestion ? suggestion.y + 190 : 0, 760);
       svg.setAttribute("viewBox", `0 0 ${Math.round(width)} ${Math.round(height)}`);
     }
 
@@ -3701,7 +3764,7 @@
         return;
       }
       const nodes = visibleNodes();
-      $("#linksLayer").innerHTML = flow.links.map(([from, to], index) => {
+      const realLinks = flow.links.map(([from, to], index) => {
         const a = nodes.find(item => item.id === from);
         const b = nodes.find(item => item.id === to);
         if (!a || !b) return "";
@@ -3719,6 +3782,7 @@
         const marker = selected ? "arrowSelected" : running || active ? "arrowActive" : done ? "arrowDone" : "arrow";
         return `<path class="link ${active ? "active" : ""} ${done ? "done" : ""} ${running ? "running" : ""} ${selected ? "selected-link" : ""}" data-link="${key}" marker-end="url(#${marker})" d="${orthogonalPath(anchors)}" />`;
       }).join("");
+      $("#linksLayer").innerHTML = realLinks + suggestionLinkHtml();
 
       document.querySelectorAll(".link").forEach(path => {
         path.addEventListener("click", event => {
@@ -3726,6 +3790,15 @@
           openLinkLog(path.dataset.link);
         });
       });
+    }
+
+    function suggestionLinkHtml() {
+      const suggestion = selectedNextSuggestion();
+      if (!suggestion) return "";
+      const sourceRect = { x: suggestion.sourceX, y: suggestion.sourceY, width: 210, height: 122 };
+      const targetRect = { x: suggestion.x, y: suggestion.y, width: 210, height: 122 };
+      const anchors = linkAnchors(sourceRect, targetRect);
+      return `<path class="link suggestion-link" marker-end="url(#arrowActive)" d="${orthogonalPath(anchors)}" />`;
     }
 
     function linkAnchors(a, b) {
@@ -3855,14 +3928,23 @@
 
     function paintNodes() {
       const nodes = visibleNodes();
-      $("#nodesLayer").innerHTML = nodes.map((item, index) => {
+      const nodeHtml = nodes.map((item, index) => {
         const stackIndex = isCollapsed && item.workflowId === "twitter" ? workflowNodes("twitter").findIndex(node => node.id === item.id) : -1;
         if (stackIndex >= 0) return paintStackNode(item, stackIndex, workflowNodes("twitter").length);
         return paintRegularNode(item, index);
       }).join("");
+      $("#nodesLayer").innerHTML = nodeHtml + paintNextSuggestion();
 
       document.querySelectorAll(".node").forEach(card => {
         card.addEventListener("pointerdown", startNodeDrag);
+      });
+      document.querySelectorAll("[data-add-next-node]").forEach(button => {
+        button.addEventListener("pointerdown", event => event.stopPropagation());
+        button.addEventListener("click", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          addSuggestedNextNode(button.dataset.addNextNode);
+        });
       });
       document.querySelectorAll("[data-stack-flow]").forEach(button => {
         button.addEventListener("pointerdown", event => event.stopPropagation());
@@ -3917,6 +3999,21 @@
         ? { title: "建议下一步", line1: "放入 Twitter 文件夹", line2: "或连接到发布/分析节点" }
         : { title: "Suggested next", line1: "Put into Twitter folder", line2: "or connect to publish / analysis" };
       return `<span class="node-suggestion"><strong>${copy.title}</strong><span>${copy.line1}</span><span>${copy.line2}</span></span>`;
+    }
+
+    function paintNextSuggestion() {
+      const suggestion = selectedNextSuggestion();
+      if (!suggestion) return "";
+      return `
+        <div class="next-node-suggestion" data-type="${suggestion.type}" style="left:${suggestion.x}px; top:${suggestion.y}px" data-suggestion-for="${suggestion.source.id}">
+          <div class="node-top"><span class="node-icon">${iconFor(suggestion.type)}</span><span class="run-chip waiting">${labelFor("waiting")}</span></div>
+          <h3>${suggestion.title}</h3>
+          <p>${suggestion.summary}</p>
+          <div class="next-node-actions">
+            <button class="btn primary" data-add-next-node="${suggestion.source.id}">${suggestion.button}</button>
+          </div>
+        </div>
+      `;
     }
 
     function paintStackNode(item, index, total) {
@@ -4199,6 +4296,56 @@
         });
       }
       return rects;
+    }
+
+    function selectedNextSuggestion() {
+      if (isPackageMode || isCollapsed || dragState || selectedLinkKey) return null;
+      const selectedIds = selectedExistingNodeIds();
+      if (selectedIds.length > 1) return null;
+      const sourceId = selectedIds[0] || selectedId;
+      const source = flow.nodes.find(item => item.id === sourceId);
+      if (!source) return null;
+      const nodes = visibleNodes();
+      const sourceIndex = nodes.findIndex(item => item.id === source.id);
+      if (sourceIndex < 0) return null;
+      const spec = suggestedNextNodeSpec(source);
+      const sourceX = displayX(source, sourceIndex);
+      const sourceY = displayY(source, sourceIndex);
+      const position = findSuggestionSpot(source, sourceIndex);
+      return { ...spec, source, sourceX, sourceY, x: position.x, y: position.y };
+    }
+
+    function suggestedNextNodeSpec(source) {
+      const type = source.type === "data" ? "agent" : source.type === "human" ? "task" : "agent";
+      const copy = currentLang === "zh"
+        ? {
+            agent: ["下一步 Agent 节点", "继续处理当前输出，生成可执行的下一步结果。", "一键添加"],
+            task: ["下一步任务节点", "把审核结果推进到执行任务，并自动接入连线。", "一键添加"]
+          }
+        : {
+            agent: ["Next Agent Node", "Continue from this output and produce the next actionable result.", "Add next"],
+            task: ["Next Task Node", "Turn the reviewed output into an executable task with a connected edge.", "Add next"]
+          };
+      const [title, summary, button] = copy[type] || copy.agent;
+      return { type, title, summary, button };
+    }
+
+    function findSuggestionSpot(source, sourceIndex) {
+      const sourceX = displayX(source, sourceIndex);
+      const sourceY = displayY(source, sourceIndex);
+      const candidates = [
+        { x: sourceX + 270, y: sourceY },
+        { x: sourceX + 270, y: sourceY + 174 },
+        { x: sourceX + 270, y: Math.max(24, sourceY - 174) },
+        { x: sourceX, y: sourceY + 188 },
+        { x: sourceX + 540, y: sourceY }
+      ].map(item => ({ x: Math.max(24, item.x), y: Math.max(24, item.y), width: 210, height: 150 }));
+      const occupied = visibleNodes()
+        .filter(item => item.id !== source.id)
+        .map((item, index) => ({ x: displayX(item, index), y: displayY(item, index), width: 230, height: 160 }));
+      const open = candidates.find(candidate => !occupied.some(rect => intersects(candidate, rect)));
+      const chosen = open || candidates[0];
+      return { x: chosen.x, y: chosen.y };
     }
 
     function findOpenCanvasSpot({ preferRightOfPackage = false } = {}) {
@@ -4619,6 +4766,43 @@
         : currentLang === "zh" ? "\u5df2\u5728\u81ea\u7531\u753b\u677f\u4e0a\u521b\u5efa\u72ec\u7acb\u8282\u70b9\uff0c\u53ef\u4ee5\u4e4b\u540e\u653e\u5165\u6587\u4ef6\u5939\u3002" : "Created a standalone node on the free canvas. It can be placed into a folder later.");
       renderBoard();
       openNode(id);
+    }
+
+    function addSuggestedNextNode(sourceId) {
+      const source = flow.nodes.find(item => item.id === sourceId);
+      if (!source) return;
+      const suggestion = selectedNextSuggestion();
+      const fallbackIndex = visibleNodes().findIndex(item => item.id === source.id);
+      const fallback = fallbackIndex >= 0
+        ? { x: displayX(source, fallbackIndex) + 270, y: displayY(source, fallbackIndex) }
+        : findOpenCanvasSpot();
+      const position = suggestion && suggestion.source.id === source.id ? suggestion : fallback;
+      const spec = suggestion && suggestion.source.id === source.id ? suggestion : suggestedNextNodeSpec(source);
+      const id = `custom-${Date.now()}`;
+      const steps = currentLang === "zh"
+        ? ["读取上游输出", "执行下一步 Agent 任务", "回传结构化结果"]
+        : ["Read upstream output", "Run next agent task", "Return structured result"];
+      const next = node(
+        id,
+        spec.title,
+        spec.summary,
+        spec.type,
+        Math.max(24, Math.round(position.x)),
+        Math.max(24, Math.round(position.y)),
+        steps,
+        spec.type === "task" ? "Automation" : "GPT-4.1",
+        { input: source.metrics.output || "Context", output: "Result", confidence: "New" },
+        source.workflowId || null
+      );
+      const sourceIndex = flow.nodes.findIndex(item => item.id === source.id);
+      flow.nodes.splice(sourceIndex + 1, 0, next);
+      if (!flow.links.some(([from, to]) => from === source.id && to === id)) flow.links.push([source.id, id]);
+      selectedNodeIds = new Set([id]);
+      selectedId = id;
+      appendCopilot("assistant", currentLang === "zh" ? `已添加“${next.title}”，并从“${source.title}”连线过去。` : `Added "${next.title}" and connected it after "${source.title}".`);
+      renderBoard();
+      openNode(id);
+      toast(currentLang === "zh" ? "已添加下一步节点" : "Next node added");
     }
 
     function createFlowFromToolbar() {
